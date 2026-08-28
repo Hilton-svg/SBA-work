@@ -14,9 +14,19 @@ def print_histogram(counts, ten_symbol="█", unit_symbol='*', show_zero=False):
         if show_zero or count > 0:
             ten_units = count // 10
             unit_units = count % 10
-            bar = f"{letter}: {ten_symbol * ten_units}{unit_symbol * unit_units}"
+            bar = f"{ten_symbol * ten_units}{unit_symbol * unit_units}"
             print(f"{letter}: ({count})| {bar}")
+
+def get_possible_k_values(counts):
+    max_count = max(counts.values())
+    if max_count == 0:
+        return []
+    
 
 user_input = input("Enter your text: ")
 result = count_letters(user_input)
 print_histogram(result)
+possible_k_values = get_possible_k_values(result)
+if possible_k_values:
+    print("\nPossible k values for scaling the histogram:")
+    print(possible_k_values)
