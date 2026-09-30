@@ -19,12 +19,24 @@ def displacement_searching(counts):
     max_count = max(counts.values())
     if max_count == 0:
         return []
-    return [(ord('E') - ord(letter)) % 26
+    return [(ord(letter) - ord('E')) % 26
         for letter, count in counts.items()
         if count == max_count]
 
-def decryption():
-    
+def decryption(cipher_text, k):
+    decryption_text = []
+    for char in cipher_text:
+        if char.isupper():
+            decrypted_char = chr((ord(char) - ord('A') - k) % 26 + ord('A'))
+            decryption_text.append(decrypted_char)
+        elif char.islower():
+            decrypted_char = chr((ord(char) - ord('a') - k) % 26 + ord('a'))
+            decryption_text.append(decrypted_char)
+        else:
+            decryption_text.append(char)
+    return "".join(decryption_text)
+
+# ==================== 主程式流程 (Main Flow) ====================
 
 user_input = input("Enter your text: ")
 result = count_letters(user_input)
@@ -34,3 +46,8 @@ possible_k_values = displacement_searching(result)
 if possible_k_values:
     print("\nPossible decryption shifts (Caesar):")
     print(possible_k_values)
+    for k in possible_k_values:
+        decrypted_text = decryption(user_input, k)
+        print(f"shift k = {k:2d} | decrypted text: {decrypted_text}")
+else:
+    print("\nNo letters found.")
