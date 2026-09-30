@@ -6,7 +6,7 @@ def count_letters(text):
     counts = Counter(text.upper())
     return {char: counts[char] for char in string.ascii_uppercase}
 
-def print_histogram(counts, ten_symbol="█", unit_symbol='*', show_zero=True):
+def print_histogram(counts, ten_symbol="█", unit_symbol='*', show_zero=False):
     print(f"\nScaled Histogram ( {ten_symbol} = 10 units, {unit_symbol} = 1 unit ):")
     print("-" * 50)
     print("Letter counts:")
@@ -38,16 +38,20 @@ def decryption(cipher_text, k):
 
 # ==================== 主程式流程 (Main Flow) ====================
 
-user_input = input("Enter your text: ")
-result = count_letters(user_input)
-print_histogram(result)
+def main():
+    user_input = input("Enter your text: ")
+    result = count_letters(user_input)
+    print_histogram(result) 
 
-possible_k_values = displacement_searching(result)
-if possible_k_values:
-    print("\nPossible decryption shifts (Caesar):")
-    print(possible_k_values)
-    for k in possible_k_values:
-        decrypted_text = decryption(user_input, k)
-        print(f"shift k = {k:2d} | decrypted text: {decrypted_text}")
-else:
-    print("\nNo letters found.")
+    possible_k_values = displacement_searching(result)
+    if possible_k_values:
+        print("\nPossible decryption shifts (Caesar):")
+        print(possible_k_values)
+        for k in possible_k_values:
+            decrypted_text = decryption(user_input, k)
+            print(f"shift k = {k:2d} | decrypted text: {decrypted_text}")
+    else:
+        print("\nNo letters found.")
+
+if __name__ == "__main__":
+    main()
