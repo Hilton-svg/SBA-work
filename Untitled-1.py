@@ -31,9 +31,46 @@ COMMON_TRIGRAMS = {
 }
 
 # 混合評分預設權重
-CHI_WEIGHT = 0.4
-BIGRAM_WEIGHT = 0.3
-TRIGRAM_WEIGHT = 0.3
+CHI_WEIGHT = 0.35
+BIGRAM_WEIGHT = 0.28
+TRIGRAM_WEIGHT = 0.27
+VOWEL_WEIGHT = 0.10
+TARGET_VOWEL_RATIO = 0.38   # 一般英文文本中元音約佔 38%
+
+# ==================== 動態權重 ====================
+
+def get_dynamic_weights(total_letters):
+    """
+    根據字母總數動態調整混合評分權重。
+
+    設計原則：
+    - 短文本（< 20 字母）：卡方極不穩定，主要依賴 bigram / trigram / 元音。
+    - 中文本：四項均衡。
+    - 長文本（> 200 字母）：卡方穩定，提高卡方權重。
+
+    做法：用線性插值，在「短文本權重」與「長文本權重」之間平滑過渡。
+
+    回傳 (chi_weight, bigram_weight, trigram_weight, vowel_weight)。
+    """
+    # 短文本權重（偏向 n-gram 與元音）
+    short_w = (0.15, 0.35, 0.25, 0.25)
+    # 長文本權重（偏向卡方）
+    long_w = (0.50, 0.22, 0.20, 0.08)
+
+    # 插值參數 t：0 = 完全短文本，1 = 完全長文本
+    if total_letters <= 20:
+        t = 0.0
+    elif total_letters >= 200:
+        t = 1.0
+    else:
+        t = (total_letters - 20) / (200 - 20)
+
+    chi_w = short_w[0] + t * (long_w[0] - short_w[0])
+    bg_w = short_w[1] + t * (long_w[1] - short_w[1])
+    tg_w = short_w[2] + t * (long_w[2] - short_w[2])
+    vw_w = short_w[3] + t * (long_w[3] - short_w[3])
+
+    return chi_w, bg_w, tg_w, vw_w
 
 
 # ==================== 字母統計與評分 ====================
@@ -120,6 +157,27 @@ def trigram_score(text):
 
     return hits / total if total > 0 else 0.0
 
+def vowel_score(text):
+    """
+    計算元音比例分數。
+    - 元音為 a, e, i, o, u（不分大小寫）。
+    - 英文文本元音比例約 0.38，越接近越高分。
+    - 回傳 0~1，1 表示比例剛好等於 TARGET_VOWEL_RATIO。
+    """
+    letters = [c.lower() for c in text
+            if ('a' <= c <= 'z') or ('A' <= c <= 'Z')]
+
+    total = len(letters)
+    if total == 0:
+        return 0.0
+
+    vowels = sum(1 for c in letters if c in 'aeiou')
+    ratio = vowels / total
+
+    # 距離目標比例越遠，分數越低；最大距離為 TARGET_VOWEL_RATIO
+    distance = abs(ratio - TARGET_VOWEL_RATIO)
+    score = max(0.0, 1.0 - distance / TARGET_VOWEL_RATIO)
+    return score
 
 def normalize_chi_score(chi2, total_letters):
     """
@@ -134,50 +192,55 @@ def normalize_chi_score(chi2, total_letters):
 def compute_all_scores(text):
     """
     一次算好所有分數，避免重複計算。
-    回傳 (chi2, chi_score, bg_score, tg_score, total_letters)。
+    回傳 (chi2, chi_score, bg_score, tg_score, vw_score, total_letters)。
     """
     counts = count_letters(text)
     total_letters = sum(counts.values())
 
     if total_letters == 0:
-        return float('inf'), 0.0, 0.0, 0.0, 0
+        return float('inf'), 0.0, 0.0, 0.0, 0.0, 0
 
     chi2 = chi_square_score(text)
     chi_score = normalize_chi_score(chi2, total_letters)
     bg_score = bigram_score(text)
     tg_score = trigram_score(text)
+    vw_score = vowel_score(text)
 
-    return chi2, chi_score, bg_score, tg_score, total_letters
+    return chi2, chi_score, bg_score, tg_score, vw_score, total_letters
 
 
-def mixed_score_from_parts(chi_score, bg_score, tg_score,
-                           chi_weight=CHI_WEIGHT,
-                           bigram_weight=BIGRAM_WEIGHT,
-                           trigram_weight=TRIGRAM_WEIGHT):
+def mixed_score_from_parts(chi_score, bg_score, tg_score, vw_score,
+                        chi_weight=CHI_WEIGHT,
+                        bigram_weight=BIGRAM_WEIGHT,
+                        trigram_weight=TRIGRAM_WEIGHT,
+                        vowel_weight=VOWEL_WEIGHT):
     """用已算好的分數加權，回傳混合分數，越大越好。"""
     return (
         chi_weight * chi_score +
         bigram_weight * bg_score +
-        trigram_weight * tg_score
+        trigram_weight * tg_score +
+        vowel_weight * vw_score
     )
 
 
-def mixed_score(text,
-                chi_weight=CHI_WEIGHT,
-                bigram_weight=BIGRAM_WEIGHT,
-                trigram_weight=TRIGRAM_WEIGHT):
+def mixed_score(text, chi_weight=None, bigram_weight=None,
+                trigram_weight=None, vowel_weight=None):
     """
-    混合評分：卡方歸一化分數 + bigram + trigram，越大越好。
-    - 這是方便外部直接呼叫的版本，內部會自行計算所有分數。
+    混合評分。
+    - 若未指定權重，會依文本長度自動使用動態權重。
     """
-    chi2, chi_score, bg_score, tg_score, total_letters = compute_all_scores(text)
+    chi2, chi_score, bg_score, tg_score, vw_score, total_letters = compute_all_scores(text)
 
     if total_letters == 0:
         return -1.0
 
+    if chi_weight is None:
+        chi_weight, bigram_weight, trigram_weight, vowel_weight = \
+            get_dynamic_weights(total_letters)
+
     return mixed_score_from_parts(
-        chi_score, bg_score, tg_score,
-        chi_weight, bigram_weight, trigram_weight
+        chi_score, bg_score, tg_score, vw_score,
+        chi_weight, bigram_weight, trigram_weight, vowel_weight
     )
 
 
@@ -241,33 +304,29 @@ def decryption(cipher_text, k):
 # ==================== 主程式流程 ====================
 
 def main():
-    """
-    主程式：
-    1. 讀取使用者輸入文字。
-    2. 統計字母並顯示直方圖。
-    3. 枚舉所有 26 個凱撒位移。
-    4. 對每個位移解密並計算卡方、bigram、trigram、混合分數。
-    5. 選出混合分數最高的位移作為最佳解。
-    """
     user_input = input("Enter your text: ")
 
-    # 統計字母出現次數
     result = count_letters(user_input)
     total_letters = sum(result.values())
 
-    # 顯示直方圖
     print_histogram(result)
 
-    # 完全沒有字母時提前結束
     if total_letters == 0:
         print("\nNo letters found.")
         return
 
-    # 枚舉所有 26 個凱撒位移
     possible_k_values = list(range(26))
 
     print("\nPossible decryption shifts (Caesar):")
     print(possible_k_values)
+
+    # 依密文長度決定動態權重
+    chi_w, bg_w, tg_w, vw_w = get_dynamic_weights(total_letters)
+    print(
+        f"\nDynamic weights (total letters = {total_letters}): "
+        f"chi = {chi_w:.3f}, bigram = {bg_w:.3f}, "
+        f"trigram = {tg_w:.3f}, vowel = {vw_w:.3f}"
+    )
 
     best_k = None
     best_score = -1.0
@@ -275,21 +334,23 @@ def main():
     for k in possible_k_values:
         decrypted_text = decryption(user_input, k)
 
-        # 一次算好所有分數，避免重複計算
-        chi2, chi_score, bg, tg, _ = compute_all_scores(decrypted_text)
-        score = mixed_score_from_parts(chi_score, bg, tg)
+        chi2, chi_score, bg, tg, vw, _ = compute_all_scores(decrypted_text)
+        score = mixed_score_from_parts(
+            chi_score, bg, tg, vw,
+            chi_w, bg_w, tg_w, vw_w
+        )
 
         print(
             f"shift k = {k:2d} | chi2 = {chi2:8.2f} | "
             f"chi = {chi_score:.4f} | bigram = {bg:.4f} | trigram = {tg:.4f} | "
-            f"mixed = {score:.4f} | decrypted text: {decrypted_text}"
+            f"vowel = {vw:.4f} | mixed = {score:.4f} | "
+            f"decrypted text: {decrypted_text}"
         )
 
         if score > best_score:
             best_score = score
             best_k = k
 
-    # 輸出最佳解密結果
     if best_k is not None:
         print(f"\nBest shift by mixed score: k = {best_k} (score = {best_score:.4f})")
         print(f"decrypted text: {decryption(user_input, best_k)}")
