@@ -1,0 +1,66 @@
+﻿dsh-github-link deploy
+  plugin      E:\新增資料夾\SBA-work\dsh-github-link\index.js
+  entry id    github-link
+  dsh home    C:\Users\85292\.dsh
+  profile     desktop (C:\Users\85292\.dsh\profiles\desktop)
+  patch file  C:\Users\85292\.dsh\profiles\desktop\cordis.patch.yml
+  repoRoot    E:\新增資料夾\SBA-work
+  mode        dry run (add --apply to write)
+
+--- patch file after the change ---
+# Your patch layer for this dsh profile, applied after every bundle layer:
+# a top-level YAML array of loader patch entries (id-targeted config
+# overrides, disables, and insert lists; `!!js` expressions allowed).
+- id: agent-default-model
+  name: "@deepseek-ai/dsh-agent-default-model"
+  config:
+    provider: deepseek-account
+    model: deepseek-flash
+    reasoningEffort: high
+- id: ui-settings-account
+  name: "@deepseek-ai/dsh-client-ui-settings-account"
+  config:
+    version: 1
+    step: done
+    purpose: both
+    process: standard
+    completion: completed
+    usage: detailed
+    developerTools: true
+- id: ui-chat
+  name: "@deepseek-ai/dsh-client-ui-chat"
+  config:
+    transcriptView: standard
+    performanceUsage: detailed
+- id: ui-settings
+  name: "@deepseek-ai/dsh-client-ui-settings"
+  config:
+    enabled: true
+- id: speech-to-text
+  name: "@deepseek-ai/dsh-experimental-speech-to-text"
+  config:
+    defaultProvider: sensevoice-local
+    language: yue
+- id: locale
+  name: "@deepseek-ai/dsh-client-locale"
+  config:
+    preference: zh
+# Added by dsh-github-link/deploy.mjs — edit or delete freely.
+- id: github-link
+  name: 'E:/新增資料夾/SBA-work/dsh-github-link/index.js'
+  config:
+    repoRoot: 'E:/新增資料夾/SBA-work'
+    remote: origin
+    branch: null
+    timeoutMs: 120000
+    sync:
+      enabled: false
+      intervalMs: 900000
+      push: true
+      requireRemote: true
+      messageTemplate: 'chore(sync): auto-commit {timestamp}'
+      ignore:
+        - .dsh-scratch
+--- end ---
+
+dry run: no file was written. Re-run with --apply to write it.
