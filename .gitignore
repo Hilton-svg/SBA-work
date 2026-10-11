@@ -1,0 +1,7 @@
+# Plugin development scratch: extraction/probe scripts, must never be committed.
+.dsh-scratch/
+
+# Python
+.venv/
+__pycache__/
+*.pyc
