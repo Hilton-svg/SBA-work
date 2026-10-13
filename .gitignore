@@ -5,3 +5,16 @@
 .venv/
 __pycache__/
 *.pyc
+
+# 安裝相依套件時被沙箱擋下而留下的空暫時目錄（可安全手動刪除）
+.ptmp/
+.piptmp/
+.pwork/
+
+# PyInstaller 打包輸出與建置暫存
+build/
+dist/
+dist_portable/
+.run_tmp/
+.build_tmp/
+.build_cache/
